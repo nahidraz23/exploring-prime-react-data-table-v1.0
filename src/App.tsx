@@ -7,8 +7,9 @@ import { Paginator, PaginatorPageChangeEvent } from "primereact/paginator";
 import "primeicons/primeicons.css";
 import { OverlayPanel } from "primereact/overlaypanel";
 import { Button } from "primereact/button";
-import { InputText } from "primereact/inputtext";
+import { InputNumber } from "primereact/inputnumber";
 
+// Interface for the fetched data
 interface DataInfo {
   title: string;
   place_of_origin: string;
@@ -17,59 +18,74 @@ interface DataInfo {
   date_start: number;
   date_end: number;
   id: number;
+}
+
+// Interface for pagination data
+interface PaginationInfo {
   total: number;
-  currentPage: number;
 }
 
 function App() {
   const [data, setData] = useState<DataInfo[]>([]);
-  // const [rowClick, setRowClick] = useState(true);
   const [selectedRow, setSelectedRow] = useState<DataInfo[] | null>([]);
   const [selected, setSelected] = useState(0);
-  const [pagination, setPagination] = useState<DataInfo[] | null>(null);
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [first, setFirst] = useState(0);
   const [rows, setRows] = useState(5);
 
-  const pageNo: number = currentPage + 1;
-  const totalRecords: number = pagination?.total;
-  const op = useRef(null);
+  const op = useRef<OverlayPanel | null>(null);
 
-  console.log(selectedRow)
-
+  // Fetch data from the API
   const fetchData = async () => {
-    const res = await axios.get(
-      `https://api.artic.edu/api/v1/artworks?page=${currentPage + 1}`
-    );
-    setData(res.data.data);
-
-    return setLoading(false);
+    try {
+      const res = await axios.get(
+        `https://api.artic.edu/api/v1/artworks?page=${currentPage + 1}`
+      );
+      setData(res.data.data);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching data", error);
+      setLoading(false);
+    }
   };
 
-  const paginationData = async () => {
-    const res = await axios.get("https://api.artic.edu/api/v1/artworks");
-    return setPagination(res?.data?.pagination);
+  // Fetch pagination data
+  const fetchPaginationData = async () => {
+    try {
+      const res = await axios.get("https://api.artic.edu/api/v1/artworks");
+      setPagination(res.data.pagination);
+    } catch (error) {
+      console.error("Error fetching pagination data", error);
+    }
   };
 
   useEffect(() => {
     fetchData();
-    paginationData();
-  }, [pageNo]);
+    fetchPaginationData();
+  }, [currentPage]);
 
+  // Handle row selection
+  const handleRowSelection = () => {
+    const rowSelect = data.slice(0, selected);
+    setSelectedRow(rowSelect);
+  };
+
+  // Handle pagination change
   const onPageChange = (event: PaginatorPageChangeEvent) => {
     setFirst(event.first);
     setRows(event.rows);
     setCurrentPage(event.page);
   };
 
-  const handleOnsubmit = (e) => {
+  // Handle form submission for row selection
+  const handleOnSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    const form = e.target;
-    const inputValue: number = parseInt(form.inputValue.value);
-    setSelected(inputValue)
-  }
+    const form = e.currentTarget;
+    const inputValue = parseInt((form.elements.namedItem("inputValue") as HTMLInputElement).value, 10);
+    setSelected(inputValue);
+  };
 
   // Custom header template with a button that triggers the OverlayPanel
   const headerTemplate = () => {
@@ -77,18 +93,23 @@ function App() {
       <div className="table-header">
         <Button
           icon="pi pi-angle-down"
-          onClick={(e) => op.current.toggle(e)}
+          onClick={(e) => op.current?.toggle(e)}
           className="p-button-primary"
         />
-        <OverlayPanel
-          ref={op}
-          id="overlayPanel"
-          style={{ width: "300px" }}
-          className=""
-        >
-          <form onSubmit={handleOnsubmit}>
-            <InputText type="number" name="inputValue" className="border-2 border-gray-500 p-2" placeholder="Select Rows...."></InputText>
-            <input type="submit" value="Submit" className="border-2 border-gray-600 mt-2 p-1 rounded-md cursor-pointer"/>
+        <OverlayPanel ref={op} id="overlayPanel" style={{ width: "300px" }}>
+          <form onSubmit={handleOnSubmit}>
+            <InputNumber
+              onValueChange={(e) => setSelected(e.value || 0)}
+              name="inputValue"
+              inputClassName="border-2 border-gray-600 p-2"
+              placeholder="Select Rows..."
+            />
+            <input
+              onClick={handleRowSelection}
+              type="submit"
+              value="Submit"
+              className="border-2 border-gray-600 mt-2 p-1 rounded-md cursor-pointer"
+            />
           </form>
         </OverlayPanel>
       </div>
@@ -102,10 +123,10 @@ function App() {
           Exploring PRIME<span className="text-cyan-600">REACT</span> Data-table
         </h1>
       </div>
-      <div className="">
+      <div>
         <DataTable
           value={data}
-          rows={5}
+          rows={50}
           rowsPerPageOptions={[5, 10, 25, 50]}
           tableStyle={{ minWidth: "50rem" }}
           selection={selectedRow}
@@ -117,46 +138,39 @@ function App() {
           <Column
             selectionMode="multiple"
             headerStyle={{ width: "3rem" }}
-          ></Column>
-
-          <Column header={headerTemplate()}></Column>
-
-          <Column
-            field="title"
-            header="Title"
-            style={{ width: "25%" }}
-          ></Column>
-
+          />
+          <Column header={headerTemplate()} />
+          <Column field="title" header="Title" style={{ width: "25%" }} />
           <Column
             field="place_of_origin"
-            header="place_of_origin"
+            header="Place of Origin"
             style={{ width: "25%" }}
-          ></Column>
+          />
           <Column
             field="artist_display"
-            header="artist_display"
+            header="Artist Display"
             style={{ width: "25%" }}
-          ></Column>
+          />
           <Column
             field="inscriptions"
-            header="inscriptions"
+            header="Inscriptions"
             style={{ width: "25%" }}
-          ></Column>
+          />
           <Column
             field="date_start"
-            header="date_start"
+            header="Date Start"
             style={{ width: "25%" }}
-          ></Column>
+          />
           <Column
             field="date_end"
-            header="date_end"
+            header="Date End"
             style={{ width: "25%" }}
-          ></Column>
+          />
         </DataTable>
         <Paginator
           first={first}
           rows={rows}
-          totalRecords={totalRecords}
+          totalRecords={pagination?.total || 0}
           onPageChange={onPageChange}
         />
       </div>
